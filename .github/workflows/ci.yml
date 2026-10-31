@@ -1,0 +1,37 @@
+name: determinism
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]   # P1 x86-64 Linux, P2 ARM64 macOS, P3 x86-64 Windows
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: toolchain (pinned by rust-toolchain.toml)
+        run: rustup show && rustc --version
+      - run: cargo test --release
+      - run: cargo build --release
+      - name: public vectors v0
+        run: tools/check_vectors.sh
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: rustup show
+      - run: cargo build --release
+      - run: cargo build --release -p lq16-wasm --target wasm32-unknown-unknown
+      - name: no float instructions in WASM (spec §7.3)
+        run: sudo apt-get install -y -q wabt && tools/wasm_float_scan.sh target/wasm32-unknown-unknown/release/lq16_wasm.wasm
+      - name: public vectors v0 through WASM (Node)
+        run: tools/check_vectors.sh --wasm

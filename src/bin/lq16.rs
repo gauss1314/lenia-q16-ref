@@ -3,6 +3,7 @@
 //!   lq16 info  "<params>" [out_dir]   (out_dir: write params/kernel/lut records)
 //!   lq16 run   --params "<params>" --state <state.lq16> --steps L
 //!              [--threads K] [--out final.lq16] [--points points.tsv]
+//!   lq16 soup  --out s.lq16 [--n 256] [--size 40] [--amp 65535] [--seed 1]
 //!
 //! <params> looks like "R=13 T=10 mu=1500 sigma=150 beta=1/1".
 
@@ -81,6 +82,40 @@ fn main() {
                     res.points.iter().map(|(k, h)| format!("{k}\tsha256:{}\n", hex(h))).collect();
                 std::fs::write(pts, txt).unwrap_or_else(|e| die(&e.to_string()));
             }
+        }
+        Some("soup") => {
+            // Deterministic soup for public test vectors: SHA-256 counter-mode PRNG
+            // (not normative; spec §9.2 note). Patch of size K centred in N×N,
+            // cell = floor(r16 * amp / 65535), r16 from the PRNG stream.
+            let f = flags(&args[1..]);
+            let n: u32 = f.get("n").map(|s| s.parse().unwrap()).unwrap_or(256);
+            let k: u32 = f.get("size").map(|s| s.parse().unwrap()).unwrap_or(40);
+            let amp: u32 = f.get("amp").map(|s| s.parse().unwrap()).unwrap_or(65535);
+            let seed: u64 = f.get("seed").map(|s| s.parse().unwrap()).unwrap_or(1);
+            let out = f.get("out").unwrap_or_else(|| die("--out required"));
+            lq16::params::validate_n(n, 5).unwrap_or_else(|e| die(&e));
+            if k > n || amp > 65535 { die("bad --size or --amp"); }
+            let mut state = vec![0u16; (n * n) as usize];
+            let (mut ctr, mut pool, mut idx) = (0u64, [0u8; 32], 32usize);
+            let x0 = (n - k) / 2;
+            for y in 0..k {
+                for x in 0..k {
+                    if idx == 32 {
+                        let mut m = b"LQ16SOUP".to_vec();
+                        m.extend_from_slice(&seed.to_le_bytes());
+                        m.extend_from_slice(&ctr.to_le_bytes());
+                        pool = sha256(&m);
+                        ctr += 1;
+                        idx = 0;
+                    }
+                    let r16 = u16::from_le_bytes([pool[idx], pool[idx + 1]]) as u32;
+                    idx += 2;
+                    state[((x0 + y) * n + x0 + x) as usize] = (r16 * amp / 65535) as u16;
+                }
+            }
+            let rec = state_record(n, &state);
+            std::fs::write(out, &rec).unwrap_or_else(|e| die(&e.to_string()));
+            println!("state     sha256:{}", hex(&sha256(&rec)));
         }
         _ => die("usage: lq16 info <params> | lq16 run --params .. --state .. --steps L"),
     }

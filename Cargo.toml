@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "wasm"]
+
 [package]
 name = "lenia-q16-ref"
 version = "0.1.0"

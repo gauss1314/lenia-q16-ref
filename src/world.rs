@@ -59,6 +59,10 @@ impl Universe {
         let n = self.n;
         let mut out = vec![0u16; a.len()];
         let threads = threads.max(1).min(n);
+        if threads == 1 {
+            self.step_rows(a, &mut out, 0, n);
+            return out;
+        }
         let rows_per = (n + threads - 1) / threads;
         std::thread::scope(|s| {
             let mut rest: &mut [u16] = &mut out;

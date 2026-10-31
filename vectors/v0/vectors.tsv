@@ -1,0 +1,6 @@
+# Public determinism vectors v0 (spec draft lenia-q16/0.1-draft). Self-chosen parameters only;
+# no parameter set equals a species published in Chan (2019) [verify after reading the paper].
+# name	params	n	soup_size	soup_amp	soup_seed	steps	chain	final
+v6a	R=14 T=12 mu=2700 sigma=400 beta=1/1	256	48	50000	1	512	sha256:023378643142539f2f10812e61a64b57affb61933150580706492053af0fc259	sha256:38272d51ac82d0e2e7d4f5c8c25ed0ce4ab5113cf6a5bfb23080b57714d3c868
+v6b	R=20 T=20 mu=2600 sigma=360 beta=1/2,1/1,2/3	128	40	45000	2	300	sha256:cd93f654978191585106ab76253b991a92eec21661e0e84f0e1ad044961968f4	sha256:a522e050c3839bfc28d708be8e62d881aaf6f98c323069db7462029bf1186bb6
+v6c	R=10 T=8 mu=2100 sigma=300 beta=1/1,1/3	512	64	60000	3	100	sha256:38e2a360286613b709942c536e123517da12dcd4cf8e542cf87b2c0f15139afd	sha256:60bf365f8ddde1a235f6636160665d2113d8fd09d41a331987084dfb4269b6de

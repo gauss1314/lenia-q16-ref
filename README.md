@@ -16,6 +16,12 @@ Status: Phase 0 prototype. Not for registration use (spec §1).
 - `src/bin/lq16.rs` — CLI (`lq16 info`, `lq16 run`).
 - `tools/lenia_f64.py` — non-normative float64 control used for comparisons
   and for culturing initial states.
+- `wasm/` — C-ABI wrapper; `cargo build --release -p lq16-wasm --target wasm32-unknown-unknown`.
+- `vectors/v0/vectors.tsv` — public determinism vectors (self-chosen parameters);
+  `tools/check_vectors.sh [--wasm]` re-runs them natively and through WASM.
+- `web/explorer/` — WebGPU float32 preview for play-testing.
+- `.github/workflows/ci.yml` — Linux x86-64, macOS ARM64, Windows x86-64, plus a
+  WASM job (float-instruction scan and vectors in Node).
 
 ## Build and test
 

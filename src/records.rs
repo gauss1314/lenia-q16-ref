@@ -83,3 +83,31 @@ pub fn parse_state_record(bytes: &[u8]) -> Result<(u32, Vec<u16>), String> {
     let state = bytes[48..].chunks(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
     Ok((w, state))
 }
+
+/// Parses and validates a 72-byte parameter record (§3, §8.2).
+pub fn parse_params_record(b: &[u8]) -> Result<Params, String> {
+    if b.len() != 72 || &b[0..8] != b"LQ16PARM" {
+        return Err("not a parameter record".into());
+    }
+    if b[8..40] != spec_id_field() {
+        return Err("spec id differs from this implementation".into());
+    }
+    let u = |i: usize| u16::from_le_bytes([b[40 + 2 * i], b[41 + 2 * i]]);
+    let (bcount, reserved) = (u(6), u(7));
+    if reserved != 0 {
+        return Err("reserved field not zero".into());
+    }
+    let mut beta = Vec::new();
+    for i in 0..4usize {
+        let pp = u16::from_le_bytes([b[56 + 4 * i], b[57 + 4 * i]]);
+        let qq = u16::from_le_bytes([b[58 + 4 * i], b[59 + 4 * i]]);
+        if (i as u16) < bcount {
+            beta.push((pp, qq));
+        } else if pp != 0 || qq != 0 {
+            return Err("unused beta slot not zero".into());
+        }
+    }
+    let p = Params { kf: u(0), gf: u(1), r: u(2), t: u(3), mu_q: u(4), sigma_q: u(5), beta };
+    p.validate()?;
+    Ok(p)
+}

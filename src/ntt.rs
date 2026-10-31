@@ -27,7 +27,8 @@ fn pow_mod(mut b: u64, mut e: u64, m: u64) -> u64 {
 }
 
 /// In-place iterative radix-2 NTT of length n (power of two) over Z/m.
-fn ntt(a: &mut [u64], m: u64, g: u64, invert: bool) {
+fn ntt<const M: u64, const G: u64>(a: &mut [u64], invert: bool) {
+    let (m, g) = (M, G);
     let n = a.len();
     let mut j = 0usize;
     for i in 1..n {
@@ -51,10 +52,10 @@ fn ntt(a: &mut [u64], m: u64, g: u64, invert: bool) {
             let mut wn = 1u64;
             for k in 0..len / 2 {
                 let u = a[start + k];
-                let v = a[start + k + len / 2] * wn % m;
+                let v = a[start + k + len / 2] * wn % M;
                 a[start + k] = if u + v >= m { u + v - m } else { u + v };
                 a[start + k + len / 2] = if u >= v { u - v } else { u + m - v };
-                wn = wn * w % m;
+                wn = wn * w % M;
             }
         }
         len <<= 1;
@@ -62,22 +63,22 @@ fn ntt(a: &mut [u64], m: u64, g: u64, invert: bool) {
     if invert {
         let inv_n = pow_mod(n as u64, m - 2, m);
         for x in a.iter_mut() {
-            *x = *x * inv_n % m;
+            *x = *x * inv_n % M;
         }
     }
 }
 
 /// 2-D transform of an n×n row-major array.
-fn ntt2(a: &mut [u64], n: usize, m: u64, g: u64, invert: bool) {
+fn ntt2<const M: u64, const G: u64>(a: &mut [u64], n: usize, invert: bool) {
     for row in a.chunks_mut(n) {
-        ntt(row, m, g, invert);
+        ntt::<M, G>(row, invert);
     }
     let mut col = vec![0u64; n];
     for x in 0..n {
         for y in 0..n {
             col[y] = a[y * n + x];
         }
-        ntt(&mut col, m, g, invert);
+        ntt::<M, G>(&mut col, invert);
         for y in 0..n {
             a[y * n + x] = col[y];
         }
@@ -103,8 +104,8 @@ impl NttPlan {
         }
         let mut k1 = base.clone();
         let mut k2 = base;
-        ntt2(&mut k1, n, M1, G1, false);
-        ntt2(&mut k2, n, M2, G2, false);
+        ntt2::<M1, G1>(&mut k1, n, false);
+        ntt2::<M2, G2>(&mut k2, n, false);
         NttPlan { n, k1, k2, inv_m1_mod_m2: pow_mod(M1 % M2, M2 - 2, M2) }
     }
 
@@ -113,14 +114,14 @@ impl NttPlan {
         let n = self.n;
         let mut a1: Vec<u64> = a.iter().map(|&v| v as u64).collect();
         let mut a2 = a1.clone();
-        ntt2(&mut a1, n, M1, G1, false);
-        ntt2(&mut a2, n, M2, G2, false);
+        ntt2::<M1, G1>(&mut a1, n, false);
+        ntt2::<M2, G2>(&mut a2, n, false);
         for i in 0..n * n {
             a1[i] = a1[i] * self.k1[i] % M1;
             a2[i] = a2[i] * self.k2[i] % M2;
         }
-        ntt2(&mut a1, n, M1, G1, true);
-        ntt2(&mut a2, n, M2, G2, true);
+        ntt2::<M1, G1>(&mut a1, n, true);
+        ntt2::<M2, G2>(&mut a2, n, true);
         a1.iter()
             .zip(a2.iter())
             .map(|(&r1, &r2)| {

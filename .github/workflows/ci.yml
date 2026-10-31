@@ -35,3 +35,28 @@ jobs:
         run: sudo apt-get install -y -q wabt && tools/wasm_float_scan.sh target/wasm32-unknown-unknown/release/lq16_wasm.wasm
       - name: public vectors v0 through WASM (Node)
         run: tools/check_vectors.sh --wasm
+  browsers:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, browser: chromium }
+          - { os: ubuntu-latest, browser: firefox }
+          - { os: macos-14, browser: webkit }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: rustup show
+      - run: cargo build --release
+      - run: cargo build --release -p lq16-wasm --target wasm32-unknown-unknown
+      - run: tools/prepare_vec_tmp.sh
+      - name: install playwright
+        run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps ${{ matrix.browser }}
+      - name: public vectors v0 in ${{ matrix.browser }}
+        run: |
+          python3 -m http.server 8766 >/dev/null 2>&1 &
+          sleep 2
+          node tools/browser_vectors.mjs ${{ matrix.browser }}

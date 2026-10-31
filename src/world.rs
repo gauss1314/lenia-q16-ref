@@ -4,13 +4,22 @@
 use crate::expneg::ExpNeg;
 use crate::kernel::{generate as gen_kernel, Kernel};
 use crate::lut::generate as gen_lut;
+use crate::ntt::NttPlan;
 use crate::params::{validate_n, Params, SPEC_ID};
 use crate::records::{kernel_record, lut_record, params_record, spec_id_field, state_record};
 use crate::sha256::sha256;
 
 pub const CHAIN_INTERVAL: u64 = 256;
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Algo {
+    Direct,
+    Ntt,
+}
+
 pub struct Universe {
+    pub algo: Algo,
+    ntt: Option<NttPlan>,
     pub params: Params,
     pub n: u32,
     pub kernel: Kernel,
@@ -32,7 +41,7 @@ impl Universe {
         let h_params = sha256(&params_record(&params));
         let h_kernel = sha256(&kernel_record(&kernel));
         let h_lut = sha256(&lut_record(&lut));
-        Ok(Universe { params, n, kernel, lut, taps, h_params, h_kernel, h_lut })
+        Ok(Universe { algo: Algo::Direct, ntt: None, params, n, kernel, lut, taps, h_params, h_kernel, h_lut })
     }
 
     /// Computes rows [y0, y1) of the next state into `out`.
@@ -54,8 +63,22 @@ impl Universe {
         }
     }
 
+    /// Switches to the NTT potential (spec §7.2 method 2); results must not change.
+    pub fn use_ntt(&mut self) {
+        self.ntt = Some(NttPlan::new(&self.kernel, self.n));
+        self.algo = Algo::Ntt;
+    }
+
     /// One synchronous step; `threads` only splits the work (result is identical).
     pub fn step(&self, a: &[u16], threads: u32) -> Vec<u16> {
+        if let Some(plan) = &self.ntt {
+            let u = plan.potential(a);
+            return a
+                .iter()
+                .zip(u.iter())
+                .map(|(&v, &uu)| (v as i32 + self.lut[uu as usize]).clamp(0, 65535) as u16)
+                .collect();
+        }
         let n = self.n;
         let mut out = vec![0u16; a.len()];
         let threads = threads.max(1).min(n);

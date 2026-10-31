@@ -2,7 +2,7 @@
 //!
 //!   lq16 info  "<params>" [out_dir]   (out_dir: write params/kernel/lut records)
 //!   lq16 run   --params "<params>" --state <state.lq16> --steps L
-//!              [--threads K] [--out final.lq16] [--points points.tsv]
+//!              [--threads K] [--algo direct|ntt] [--out final.lq16] [--points points.tsv]
 //!   lq16 soup  --out s.lq16 [--n 256] [--size 40] [--amp 65535] [--seed 1]
 //!
 //! <params> looks like "R=13 T=10 mu=1500 sigma=150 beta=1/1".
@@ -61,7 +61,10 @@ fn main() {
             let steps: u64 = f.get("steps").unwrap_or_else(|| die("--steps required")).parse()
                 .unwrap_or_else(|_| die("bad --steps"));
             let threads: u32 = f.get("threads").map(|s| s.parse().unwrap()).unwrap_or(4);
-            let u = Universe::new(p, n).unwrap_or_else(|e| die(&e));
+            let mut u = Universe::new(p, n).unwrap_or_else(|e| die(&e));
+            if f.get("algo").map(String::as_str) == Some("ntt") {
+                u.use_ntt();
+            }
             let res = u.run(state, steps, threads);
             println!("spec      {}", res.spec);
             println!("params    sha256:{}", hex(&u.h_params));

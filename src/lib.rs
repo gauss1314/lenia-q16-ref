@@ -8,6 +8,7 @@ pub mod expneg;
 pub mod intmath;
 pub mod kernel;
 pub mod lut;
+pub mod ntt;
 pub mod params;
 pub mod records;
 pub mod sha256;

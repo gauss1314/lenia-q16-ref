@@ -1,0 +1,24 @@
+[package]
+name = "lenia-q16-ref"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Reference implementation of the lenia-q16 deterministic integer Lenia universe (draft spec lenia-q16/0.1-draft)"
+publish = false
+
+[lib]
+name = "lq16"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lq16"
+path = "src/bin/lq16.rs"
+
+[dependencies]
+
+[profile.release]
+overflow-checks = true
+debug = false
+
+[profile.test]
+overflow-checks = true

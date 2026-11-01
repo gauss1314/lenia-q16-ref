@@ -116,12 +116,18 @@ impl Universe {
     /// Runs L steps from `state`, returning the final state, the chain and every
     /// segment point (k, S_k) including k = 0.
     pub fn run(&self, state: Vec<u16>, l: u64, threads: u32) -> RunResult {
+        self.run_with(state, l, threads, |_, _| {})
+    }
+
+    /// Same as `run`, calling `observe(k, state)` after every step k (tools only).
+    pub fn run_with(&self, state: Vec<u16>, l: u64, threads: u32, mut observe: impl FnMut(u64, &[u16])) -> RunResult {
         let s0 = sha256(&state_record(self.n, &state));
         let mut c = self.chain_head(&s0);
         let mut points = vec![(0u64, s0)];
         let mut a = state;
         for k in 1..=l {
             a = self.step(&a, threads);
+            observe(k, &a);
             if k % CHAIN_INTERVAL == 0 || k == l {
                 let sk = sha256(&state_record(self.n, &a));
                 let mut v = Vec::new();

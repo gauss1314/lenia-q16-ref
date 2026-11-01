@@ -3,6 +3,7 @@
 //!   lq16 info  "<params>" [out_dir]   (out_dir: write params/kernel/lut records)
 //!   lq16 run   --params "<params>" --state <state.lq16> --steps L
 //!              [--threads K] [--algo direct|ntt] [--out final.lq16] [--points points.tsv]
+//!              [--dump frames.u16 --every K]
 //!   lq16 soup  --out s.lq16 [--n 256] [--size 40] [--amp 65535] [--seed 1]
 //!
 //! <params> looks like "R=13 T=10 mu=1500 sigma=150 beta=1/1".
@@ -65,7 +66,21 @@ fn main() {
             if f.get("algo").map(String::as_str) == Some("ntt") {
                 u.use_ntt();
             }
-            let res = u.run(state, steps, threads);
+            // --dump frames.u16 --every K: raw little-endian u16 frames after every K-th step
+            let every: u64 = f.get("every").map(|s| s.parse().unwrap()).unwrap_or(1).max(1);
+            let mut dump = f.get("dump").map(|p| {
+                std::io::BufWriter::new(std::fs::File::create(p).unwrap_or_else(|e| die(&e.to_string())))
+            });
+            let res = u.run_with(state, steps, threads, |k, a| {
+                if let Some(w) = dump.as_mut() {
+                    if k % every == 0 {
+                        use std::io::Write;
+                        let bytes: Vec<u8> = a.iter().flat_map(|v| v.to_le_bytes()).collect();
+                        w.write_all(&bytes).unwrap();
+                    }
+                }
+            });
+            drop(dump);
             println!("spec      {}", res.spec);
             println!("params    sha256:{}", hex(&u.h_params));
             println!("kernel    sha256:{}", hex(&u.h_kernel));

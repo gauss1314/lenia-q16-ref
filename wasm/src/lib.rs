@@ -22,13 +22,17 @@ pub extern "C" fn lq16_alloc(len: u32) -> *mut u8 {
 
 /// Returns 0 on success, 1 on bad input (message in the result buffer).
 #[no_mangle]
-pub extern "C" fn lq16_run(pp: *const u8, plen: u32, sp: *const u8, slen: u32, steps: u32) -> u32 {
+/// `algo`: 0 = direct summation, 1 = NTT (both must give identical results, spec §7.2).
+pub extern "C" fn lq16_run(pp: *const u8, plen: u32, sp: *const u8, slen: u32, steps: u32, algo: u32) -> u32 {
     let params = unsafe { std::slice::from_raw_parts(pp, plen as usize) };
     let state = unsafe { std::slice::from_raw_parts(sp, slen as usize) };
     let out = (|| -> Result<String, String> {
         let p = parse_params_record(params)?;
         let (n, s) = parse_state_record(state)?;
-        let u = Universe::new(p, n)?;
+        let mut u = Universe::new(p, n)?;
+        if algo == 1 {
+            u.use_ntt();
+        }
         let r = u.run(s, steps as u64, 1);
         Ok(format!("{}{}", hex(&r.chain), hex(&sha256(&state_record(n, &r.final_state)))))
     })();

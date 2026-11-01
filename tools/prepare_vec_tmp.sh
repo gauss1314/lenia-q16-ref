@@ -8,3 +8,6 @@ grep -v '^#' vectors/v0/vectors.tsv | while IFS="$(printf '\t')" read -r name pa
   $L soup --out "vec-tmp/$name.state" --n "$n" --size "$sz" --amp "$amp" --seed "$seed" >/dev/null
   $L info "$params" "vec-tmp/$name" >/dev/null
 done
+grep -v '^#' bench/v0/benchmarks.tsv | while IFS="$(printf '\t')" read -r name params rest; do
+  $L info "$params" "vec-tmp/bench-$name" >/dev/null
+done

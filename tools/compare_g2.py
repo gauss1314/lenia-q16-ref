@@ -1,8 +1,8 @@
 """G2 behaviour comparison (Phase 0, not normative). Measurement report §1 table.
 
   python3 compare_g2.py int   <params> <state.lq16> [TUs]   integer reference vs float64
-  python3 compare_g2.py noise <params> <state.lq16> [TUs]   float64 vs float64 with +-1 LSB
-                                                            on every non-zero cell (seed 1)
+  python3 compare_g2.py noise <params> <state.lq16> [TUs] [seed]   float64 vs float64 with +-1 LSB
+                                                            on every non-zero cell (seed default 1)
 
 <params> is the lq16 string, e.g. "R=13 T=10 mu=1923 sigma=277 beta=1/2,1/1".
 Both runs start from the same quantised snapshot and run TUs time units (default 2000).
@@ -176,13 +176,13 @@ def main():
     if mode == 'int':
         other = run_int(params, state_path, tus)
     elif mode == 'noise':
-        rng = np.random.default_rng(1)
+        rng = np.random.default_rng(int(sys.argv[5]) if len(sys.argv) > 5 else 1)
         p = q.astype(np.int64) + rng.choice([-1, 1], size=q.shape) * (q > 0)
         other = run_f64(params, np.clip(p, 0, 65535) / 65535, tus)
     else:
         sys.exit('mode is int or noise')
     a, b = other.summary(), ref.summary()
-    out = dict(mode=mode, params=params, state=os.path.basename(state_path), tus=tus,
+    out = dict(mode=mode, seed=int(sys.argv[5]) if mode == 'noise' and len(sys.argv) > 5 else 1, params=params, state=os.path.basename(state_path), tus=tus,
                other=a, f64=b, diff=diff(a, b, other, ref))
     print(json.dumps(out, default=float), flush=True)
 

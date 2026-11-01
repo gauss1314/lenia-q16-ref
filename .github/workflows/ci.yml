@@ -59,7 +59,8 @@ jobs:
       - run: tools/prepare_vec_tmp.sh
       - name: install playwright
         run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps ${{ matrix.browser }}
-      - name: public vectors v0 in ${{ matrix.browser }}
+      - name: public vectors v0 and bench/v0 in ${{ matrix.browser }}
+        timeout-minutes: 150   # Firefox runs the WASM NTT path several times slower
         run: |
           python3 -m http.server 8766 >/dev/null 2>&1 &
           sleep 2

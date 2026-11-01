@@ -6,38 +6,48 @@
 <script type="module">
 // Served from the repository root. Expects /target/wasm32-unknown-unknown/release/lq16_wasm.wasm
 // and generated inputs in /vec-tmp/<name>/params.lq16 and /vec-tmp/<name>.state.
+// Opened by hand it runs everything; ?driver leaves the items to tools/browser_vectors.mjs,
+// which runs them one at a time through window.__runItem(i) (one timeout per item).
 const log = s => { document.getElementById('log').textContent += s + '\n'; };
-const tsv = await (await fetch('/vectors/v0/vectors.tsv')).text();
 const wasm = await WebAssembly.instantiate(await (await fetch('/target/wasm32-unknown-unknown/release/lq16_wasm.wasm')).arrayBuffer(), {});
 const e = wasm.instance.exports;
 const put = b => { const p = e.lq16_alloc(b.length); new Uint8Array(e.memory.buffer, p, b.length).set(b); return p; };
-const results = [];
-for (const line of tsv.split('\n')) {
+const items = [];
+for (const line of (await (await fetch('/vectors/v0/vectors.tsv')).text()).split('\n')) {
   if (!line || line.startsWith('#')) continue;
   const [name, , , , , , steps, chain, final] = line.split('\t');
-  const pb = new Uint8Array(await (await fetch(`/vec-tmp/${name}/params.lq16`)).arrayBuffer());
-  const sb = new Uint8Array(await (await fetch(`/vec-tmp/${name}.state`)).arrayBuffer());
-  const t0 = performance.now();
-  const code = e.lq16_run(put(pb), pb.length, put(sb), sb.length, Number(steps), 0);
-  const res = new TextDecoder().decode(new Uint8Array(e.memory.buffer, e.lq16_result_ptr(), 256)).replace(/\0+$/, '');
-  const ok = code === 0 && 'sha256:' + res.slice(0, 64) === chain && 'sha256:' + res.slice(64, 128) === final;
-  const r = { name, ok, seconds: (performance.now() - t0) / 1000, got: code === 0 ? 'sha256:' + res.slice(0, 64) : res };
-  results.push(r); log(`${name} ${ok ? 'ok' : 'MISMATCH ' + r.got} ${r.seconds.toFixed(1)} s`);
+  items.push({ name, steps: Number(steps), chain, final, algo: 0,
+               params: `/vec-tmp/${name}/params.lq16`, state: `/vec-tmp/${name}.state` });
 }
-// benchmark structures (bench/v0), NTT path
-const btsv = await (await fetch('/bench/v0/benchmarks.tsv')).text();
-for (const line of btsv.split('\n')) {
+// benchmark structures (bench/v0), NTT path; only the chain is listed
+for (const line of (await (await fetch('/bench/v0/benchmarks.tsv')).text()).split('\n')) {
   if (!line || line.startsWith('#')) continue;
   const [name, , state, steps, chain] = line.split('\t');
-  const pb = new Uint8Array(await (await fetch(`/vec-tmp/bench-${name}/params.lq16`)).arrayBuffer());
-  const sb = new Uint8Array(await (await fetch(`/bench/v0/${state}`)).arrayBuffer());
-  const t0 = performance.now();
-  const code = e.lq16_run(put(pb), pb.length, put(sb), sb.length, Number(steps), 1);
-  const res = new TextDecoder().decode(new Uint8Array(e.memory.buffer, e.lq16_result_ptr(), 256)).replace(/\0+$/, '');
-  const ok = code === 0 && 'sha256:' + res.slice(0, 64) === chain;
-  const r = { name: 'bench-' + name, ok, seconds: (performance.now() - t0) / 1000, got: code === 0 ? 'sha256:' + res.slice(0, 64) : res };
-  results.push(r); log(`${r.name} ${ok ? 'ok' : 'MISMATCH ' + r.got} ${r.seconds.toFixed(1)} s`);
+  items.push({ name: 'bench-' + name, steps: Number(steps), chain, final: null, algo: 1,
+               params: `/vec-tmp/bench-${name}/params.lq16`, state: `/bench/v0/${state}` });
 }
-window.__results = results;
-log(results.every(r => r.ok) ? 'ALL OK' : 'FAILED');
+async function runItem(i) {
+  const it = items[i];
+  const pb = new Uint8Array(await (await fetch(it.params)).arrayBuffer());
+  const sb = new Uint8Array(await (await fetch(it.state)).arrayBuffer());
+  const t0 = performance.now();
+  const code = e.lq16_run(put(pb), pb.length, put(sb), sb.length, it.steps, it.algo);
+  const res = new TextDecoder().decode(new Uint8Array(e.memory.buffer, e.lq16_result_ptr(), 256)).replace(/\0+$/, '');
+  const ok = code === 0 && 'sha256:' + res.slice(0, 64) === it.chain &&
+             (it.final === null || 'sha256:' + res.slice(64, 128) === it.final);
+  const r = { name: it.name, ok, seconds: (performance.now() - t0) / 1000, got: code === 0 ? 'sha256:' + res.slice(0, 64) : res };
+  log(`${r.name} ${ok ? 'ok' : 'MISMATCH ' + r.got} ${r.seconds.toFixed(1)} s`);
+  return r;
+}
+window.__items = items.map(it => it.name);
+window.__runItem = runItem;
+if (!new URLSearchParams(location.search).has('driver')) {
+  const results = [];
+  for (let i = 0; i < items.length; i++) {
+    results.push(await runItem(i));
+    await new Promise(r => setTimeout(r, 0)); // let the page repaint between items
+  }
+  window.__results = results;
+  log(results.every(r => r.ok) ? 'ALL OK' : 'FAILED');
+}
 </script></body></html>

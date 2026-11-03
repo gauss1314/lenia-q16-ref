@@ -19,6 +19,17 @@ LQ16 = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'target', 
 ALIVE_MIN_MASS, BLOWUP_FRAC, MASK = 1.0, 0.25, 0.1
 SPEED_FLOOR = 0.002  # R per TU; below this the speed is centroid jitter and is not compared
 ANGLES = np.arange(0, 360, 5)
+HARMONICS = np.arange(1, 13)
+PSI = np.radians(np.arange(-180, 180, 0.5))
+
+
+def rotation_steps(h):
+    """Rotation (deg) between consecutive frames: the angle maximising the circular
+    cross-correlation of the angular profiles, from harmonics m = 1..12 about the centroid.
+    A rotation by phi multiplies harmonic m by exp(-i m phi)."""
+    cross = h[1:] * np.conj(h[:-1])  # (frames-1, M)
+    score = np.real(cross @ np.exp(1j * HARMONICS[:, None] * PSI[None, :]))
+    return np.degrees(PSI[np.argmax(score, axis=1)])
 
 
 def parse(params):
@@ -35,14 +46,14 @@ class Stats:
         self.c = min(n, max(64, 8 * R)) // 2 * 2
         ang = 2 * np.pi * np.arange(n) / n
         self.e = np.exp(1j * ang)
-        self.mass, self.cen, self.orient, self.cover, self.crops = [], [], [], [], []
+        self.mass, self.cen, self.harm, self.cover, self.crops = [], [], [], [], []
 
     def add(self, k, A):
         m = A.sum()
         self.mass.append(m)
         self.cover.append((A > 0.01).mean())
         if m <= 0:
-            self.cen.append((0.0, 0.0)); self.orient.append(0.0)
+            self.cen.append((0.0, 0.0)); self.harm.append(np.zeros(len(HARMONICS), complex))
             if k >= self.tus - self.keep:
                 self.crops.append(np.zeros((self.c, self.c), np.float32))
             return
@@ -55,8 +66,8 @@ class Stats:
         yy, xx = np.mgrid[-h:h, -h:h]
         w = C / max(C.sum(), 1e-12)
         my, mx = (w * yy).sum(), (w * xx).sum()
-        cyy, cxx, cxy = (w * (yy - my) ** 2).sum(), (w * (xx - mx) ** 2).sum(), (w * (yy - my) * (xx - mx)).sum()
-        self.orient.append(0.5 * np.arctan2(2 * cxy, cxx - cyy))  # principal axis, mod pi
+        th = np.arctan2(yy - my, xx - mx)
+        self.harm.append((C[None] * np.exp(-1j * HARMONICS[:, None, None] * th[None])).sum((1, 2)))
         if k >= self.tus - self.keep:
             # sub-pixel centring: shift the whole frame by the fractional remainder (Fourier shift)
             fy, fx = cy - round(cy), cx - round(cx)
@@ -75,8 +86,7 @@ class Stats:
         v = d.mean(0)
         speed = float(np.hypot(d[:, 0], d[:, 1]).mean() / self.R)  # R per TU
         direction = float(np.degrees(np.arctan2(v[0], v[1])))
-        o = np.unwrap(2 * np.array(self.orient)) / 2
-        omega = float(np.degrees(np.diff(o[tail]).mean()))  # deg per TU
+        omega = float(np.median(rotation_steps(np.array(self.harm)[self.tus // 2:])))  # deg per TU; median: symmetric shapes alias
         mt = m[tail]
         x = mt - mt.mean()
         spec = np.abs(np.fft.rfft(x * np.hanning(len(x))))

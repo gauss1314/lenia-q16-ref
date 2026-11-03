@@ -129,6 +129,12 @@ def morph_iou(ref_crops, other_crops):
     rotations in 5-degree steps; returns the median over ref frames."""
     if not ref_crops or not other_crops:
         return 0.0
+    c = ref_crops[0].shape[0]
+    f = -(-c // 128)  # large R: block-average crops down to <= 128 px so the match fits in memory
+    if f > 1:
+        m = c // f * f
+        down = lambda M: M[:m, :m].reshape(m // f, f, m // f, f).mean((1, 3))
+        ref_crops, other_crops = [down(M) for M in ref_crops], [down(M) for M in other_crops]
     G = np.array([(rotate(M, d) > MASK).ravel() for d in ANGLES for M in other_crops], np.float32)
     F = np.array([(M > MASK).ravel() for M in ref_crops], np.float32)
     inter = F @ G.T

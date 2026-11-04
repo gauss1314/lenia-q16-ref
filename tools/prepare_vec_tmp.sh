@@ -11,3 +11,13 @@ done
 grep -v '^#' bench/v0/benchmarks.tsv | while IFS="$(printf '\t')" read -r name params rest; do
   $L info "$params" "vec-tmp/bench-$name" >/dev/null
 done
+# full G1 vectors (vectors/g1/g1.tsv, written by tools/check_g1.sh --write)
+if [ -f vectors/g1/g1.tsv ]; then
+  grep -v '^#' vectors/g1/g1.tsv | while IFS="$(printf '\t')" read -r name params src rest; do
+    $L info "$params" "vec-tmp/g1-$name" >/dev/null
+    case "$src" in
+      soup:*) $L soup --out "vec-tmp/g1-$name.state" --n 256 --size "$(echo "$src" | cut -d: -f2)" --amp 65535 --seed "$(echo "$src" | cut -d: -f3)" >/dev/null ;;
+      *) cp "$src" "vec-tmp/g1-$name.state" ;;
+    esac
+  done
+fi

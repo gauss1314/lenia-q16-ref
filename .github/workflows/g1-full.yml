@@ -1,0 +1,41 @@
+name: g1-full
+# The full G1 matrix (phase 0 plan §6.1): vectors/g1/g1.tsv, 2000 TU per item, on the three
+# G1 configurations (D-066). Manual only: about 10x the minutes of the routine CI run.
+on:
+  workflow_dispatch:
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show && rustc --version
+      - run: cargo build --release
+      - name: full G1 vectors (NTT, 2000 TU each)
+        run: tools/check_g1.sh
+  chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: rustup show
+      - run: cargo build --release
+      - run: cargo build --release -p lq16-wasm --target wasm32-unknown-unknown
+      - run: tools/prepare_vec_tmp.sh
+      - name: install playwright
+        run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
+      - name: full G1 vectors in chromium (WASM, NTT, 2000 TU each)
+        run: |
+          python3 -m http.server 8766 >/dev/null 2>&1 &
+          sleep 2
+          node tools/browser_vectors.mjs chromium --g1

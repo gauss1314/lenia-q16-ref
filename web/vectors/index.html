@@ -19,12 +19,23 @@ for (const line of (await (await fetch('/vectors/v0/vectors.tsv')).text()).split
   items.push({ name, steps: Number(steps), chain, final, algo: 0,
                params: `/vec-tmp/${name}/params.lq16`, state: `/vec-tmp/${name}.state` });
 }
+// ?g1: only the full G1 vectors (vectors/g1/g1.tsv, 2000 TU each, NTT; chain and final state)
+if (new URLSearchParams(location.search).has('g1')) {
+  items.length = 0;
+  for (const line of (await (await fetch('/vectors/g1/g1.tsv')).text()).split('\n')) {
+    if (!line || line.startsWith('#')) continue;
+    const [name, , , steps, chain, final] = line.split('\t');
+    items.push({ name: 'g1-' + name, steps: Number(steps), chain, final, algo: 1,
+                 params: `/vec-tmp/g1-${name}/params.lq16`, state: `/vec-tmp/g1-${name}.state` });
+  }
+} else {
 // benchmark structures (bench/v0), NTT path; only the chain is listed
 for (const line of (await (await fetch('/bench/v0/benchmarks.tsv')).text()).split('\n')) {
   if (!line || line.startsWith('#')) continue;
   const [name, , state, steps, chain] = line.split('\t');
   items.push({ name: 'bench-' + name, steps: Number(steps), chain, final: null, algo: 1,
                params: `/vec-tmp/bench-${name}/params.lq16`, state: `/bench/v0/${state}` });
+}
 }
 async function runItem(i) {
   const it = items[i];

@@ -3,18 +3,33 @@ vectors v0 and bench/v0 in the browser (WASM in a Web Worker) with every input
 embedded, so it can be opened straight from disk (file://) in desktop Chrome.
 
   tools/prepare_vec_tmp.sh && python3 tools/make_standalone.py
+  python3 tools/make_standalone.py --check   (CI: the committed page lists the same
+                                             items, params, steps and hashes as the tsv files)
 
 Re-run whenever the WASM build, vectors/v0 or bench/v0 change.
 """
-import base64, json, os
+import base64, json, os, sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
-b64 = lambda p: base64.b64encode(open(os.path.join(ROOT, p), 'rb').read()).decode()
+PAGE = os.path.join(ROOT, 'web/vectors/standalone.html')
 
 
 def rows(path):
     return [l.rstrip('\n').split('\t') for l in open(os.path.join(ROOT, path)) if l.strip() and not l.startswith('#')]
 
+
+if '--check' in sys.argv:
+    page = open(PAGE).read()
+    emb = json.loads(page.split('const ITEMS = ', 1)[1].split(';\nconst WASM', 1)[0])
+    want = [(r[0], r[1], int(r[6]), r[7], r[8]) for r in rows('vectors/v0/vectors.tsv')]
+    want += [('bench-' + r[0], r[1], int(r[3]), r[4], None) for r in rows('bench/v0/benchmarks.tsv')]
+    got = [(e['name'], e['params'], e['steps'], e['chain'], e['final']) for e in emb]
+    spec = open(os.path.join(ROOT, 'src/params.rs')).read().split('SPEC_ID: &str = "')[1].split('"')[0]
+    if got != want or f'const SPEC = "{spec}"' not in page:
+        sys.exit('web/vectors/standalone.html is stale: run tools/prepare_vec_tmp.sh && python3 tools/make_standalone.py')
+    print('standalone.html matches vectors/v0 and bench/v0')
+    sys.exit(0)
+b64 = lambda p: base64.b64encode(open(os.path.join(ROOT, p), 'rb').read()).decode()
 
 items = []
 for name, params, n, sz, amp, seed, steps, chain, final in rows('vectors/v0/vectors.tsv'):
@@ -89,6 +104,5 @@ $('copy').onclick = () => { $('out').select(); navigator.clipboard ? navigator.c
 </script></body></html>
 '''
 html = html.replace('__ITEMS__', json.dumps(items)).replace('__WASM__', wasm).replace('__SPEC__', spec)
-out = os.path.join(ROOT, 'web/vectors/standalone.html')
-open(out, 'w').write(html)
-print(out, len(html), 'bytes,', len(items), 'items')
+open(PAGE, 'w').write(html)
+print(PAGE, len(html), 'bytes,', len(items), 'items')

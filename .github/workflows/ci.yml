@@ -37,6 +37,8 @@ jobs:
       - name: no float instructions in WASM (spec §7.3)
         run: sudo apt-get install -y -q wabt && tools/wasm_float_scan.sh target/wasm32-unknown-unknown/release/lq16_wasm.wasm
       - run: tools/prepare_vec_tmp.sh
+      - name: standalone self-test page is up to date
+        run: python3 tools/make_standalone.py --check
       - name: install playwright
         run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
       - name: public vectors v0 and bench/v0 in chromium

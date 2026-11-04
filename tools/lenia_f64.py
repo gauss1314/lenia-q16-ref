@@ -43,7 +43,7 @@ class Lenia:
         return np.clip(A + growth(U, self.mu, self.sigma) / self.T, 0, 1)
 
 
-SPEC_ID = b"lenia-q16/0.1-draft"
+SPEC_ID = b"lenia-q16/0.2-k20"
 
 
 def state_record(A_u16):

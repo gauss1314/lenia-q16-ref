@@ -2,11 +2,11 @@
 //!
 //! Two primes and the Chinese remainder theorem, 64-bit arithmetic only
 //! (D-023, leaning option B). The true per-cell sum Σ w·A lies in
-//! 0..2^32 − 2^16, below M1·M2, so CRT recovers it exactly. The correlation
+//! 0..2^(16+KERNEL_BITS), below M1·M2 (about 2^59), so CRT recovers it exactly. The correlation
 //! in §7.1 is a convolution with the flipped kernel w'(e) = w(−e).
 //! Moduli and this algorithm are implementation choices, not spec semantics.
 
-use crate::kernel::Kernel;
+use crate::kernel::{Kernel, KERNEL_BITS};
 
 const M1: u64 = 998_244_353; // 119·2^23 + 1, primitive root 3
 const G1: u64 = 3;
@@ -109,7 +109,7 @@ impl NttPlan {
         NttPlan { n, k1, k2, inv_m1_mod_m2: pow_mod(M1 % M2, M2 - 2, M2) }
     }
 
-    /// Returns U(x, y) = (Σ w·A) >> 16 for every cell, exactly.
+    /// Returns U(x, y) = (Σ w·A) >> KERNEL_BITS for every cell, exactly.
     pub fn potential(&self, a: &[u16]) -> Vec<u16> {
         let n = self.n;
         let mut a1: Vec<u64> = a.iter().map(|&v| v as u64).collect();
@@ -128,8 +128,8 @@ impl NttPlan {
                 // x = r1 + M1·t, t = (r2 − r1)·M1⁻¹ mod M2; x < M1·M2 < 2^60
                 let t = ((r2 + M2 - r1 % M2) % M2) * self.inv_m1_mod_m2 % M2;
                 let x = r1 + M1 * t;
-                assert!(x < (1u64 << 32), "sum out of range: NTT/CRT error");
-                (x >> 16) as u16
+                assert!(x < (1u64 << (16 + KERNEL_BITS)), "sum out of range: NTT/CRT error");
+                (x >> KERNEL_BITS) as u16
             })
             .collect()
     }

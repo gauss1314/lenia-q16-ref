@@ -2,7 +2,7 @@
 //! trajectory hash chain (§8.5).
 
 use crate::expneg::ExpNeg;
-use crate::kernel::{generate as gen_kernel, Kernel};
+use crate::kernel::{generate as gen_kernel, Kernel, KERNEL_BITS};
 use crate::lut::generate as gen_lut;
 use crate::ntt::NttPlan;
 use crate::params::{validate_n, Params, SPEC_ID};
@@ -24,7 +24,7 @@ pub struct Universe {
     pub n: u32,
     pub kernel: Kernel,
     pub lut: Vec<i32>,
-    taps: Vec<(i32, i32, u32)>,
+    taps: Vec<(i32, i32, u64)>,
     pub h_params: [u8; 32],
     pub h_kernel: [u8; 32],
     pub h_lut: [u8; 32],
@@ -37,7 +37,7 @@ impl Universe {
         let ex = ExpNeg::new();
         let kernel = gen_kernel(&params, &ex);
         let lut = gen_lut(&params, &ex);
-        let taps = kernel.taps();
+        let taps = kernel.taps().into_iter().map(|(x, y, w)| (x, y, w as u64)).collect();
         let h_params = sha256(&params_record(&params));
         let h_kernel = sha256(&kernel_record(&kernel));
         let h_lut = sha256(&lut_record(&lut));
@@ -49,14 +49,14 @@ impl Universe {
         let n = self.n as i64;
         for y in y0..y1 {
             for x in 0..self.n {
-                let mut acc: u32 = 0;
+                let mut acc: u64 = 0;
                 for &(dx, dy, w) in &self.taps {
                     let xx = (x as i64 + dx as i64).rem_euclid(n);
                     let yy = (y as i64 + dy as i64).rem_euclid(n);
-                    let v = a[(yy * n + xx) as usize] as u32;
-                    acc = acc.checked_add(w * v).expect("u32 accumulator overflow");
+                    let v = a[(yy * n + xx) as usize] as u64;
+                    acc = acc.checked_add(w * v).expect("u64 accumulator overflow");
                 }
-                let u = acc >> 16;
+                let u = acc >> KERNEL_BITS;
                 let next = a[(y as i64 * n + x as i64) as usize] as i32 + self.lut[u as usize];
                 out[((y - y0) as i64 * n + x as i64) as usize] = next.clamp(0, 65535) as u16;
             }

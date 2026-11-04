@@ -1,11 +1,12 @@
 # Self-found benchmark structures (D-065), Phase 0 W1. Cultured in the float64 control,
 # quantised round-half-even into 256x256, run 200 TU on the integer reference.
+# Branch exp/kernel-2p20: chains recomputed under lenia-q16/0.2-k20 (state files re-headed, contents unchanged); the mass/speed/refinement columns are still the 0.1-draft (2^16) measurements.
 # name	params	state	steps	chain	int_mass	f64_mass	int_speed	f64_speed	refine_2R	refine_4T
-S00_18	R=13 T=10 mu=1923 sigma=277 beta=1/2,1/1	S00_18.s0.lq16	2000	sha256:a315172df62811f018009959279d725aac10b70c6f7720d70da2352728dbe536	132.595	132.61	0.1523	0.1479	True	True
-S02_0	R=13 T=10 mu=3120 sigma=506 beta=1/1,1/3	S02_0.s0.lq16	2000	sha256:10a259663cd60dd353bb53d4a3183d2b86b2edec115e055dc152660a5f96ee69	113.472	113.52	0.1081	0.1201	True	True
-S06_4	R=13 T=10 mu=3067 sigma=448 beta=1/1,1/2	S06_4.s0.lq16	2000	sha256:8804cd69c00fab8da723be2361eab67b47b94be043ec5be7079b449843a828f9	126.883	126.801	0.0825	0.0837	True	True
-S09_7	R=13 T=10 mu=3103 sigma=460 beta=1/1,1/2	S09_7.s0.lq16	2000	sha256:de8cd4dd86e22535adef5673cd097ab73ebf9592735092ea3b921097a852ef9b	128.598	128.618	0.0418	0.0419	True	True
-S22_1	R=13 T=10 mu=1833 sigma=251 beta=1/3,1/1,1/2	S22_1.s0.lq16	2000	sha256:84dd9662d6d9ccbb8cb46adfba703affd9a23ffb280dac36caa9b5ae4f495c8f	115.357	114.604	0.1055	0.0781	True	True
-S25_4	R=13 T=10 mu=3000 sigma=592 beta=1/2,1/1,2/3	S25_4.s0.lq16	2000	sha256:dd3a49ebfde3a3ff81a52bdcf614d0295c372c42d860605d8b9b3a3e29a984d2	193.043	192.865	0.0088	0.0063	True	True
-S38_0	R=13 T=10 mu=3268 sigma=437 beta=1/2,1/1,2/3	S38_0.s0.lq16	2000	sha256:f25fb360bb1a71c841f344aae202b4ec87cc61946d5f9fec7239fc8679e43e5a	183.534	183.6	0.0121	0.0135	True	True
-X3	R=13 T=10 mu=2600 sigma=360 beta=1/2,1/1	X3.s0.lq16	2000	sha256:c889f532b1eeb78ac045b441ad080ae217af443dc1909ab8ccb19d1140bf439d	149.793	149.793	0.0011	0.0012	True	True
+S00_18	R=13 T=10 mu=1923 sigma=277 beta=1/2,1/1	S00_18.s0.lq16	2000	sha256:a7aa356a3a74a628524549fa24fe1761db44409a29334511e0025a25497f1fbb	132.595	132.61	0.1523	0.1479	True	True
+S02_0	R=13 T=10 mu=3120 sigma=506 beta=1/1,1/3	S02_0.s0.lq16	2000	sha256:fe4edadca60f0242c0b7b3d136b771bd5d167c660d730a5d9e031fc7fa1487ba	113.472	113.52	0.1081	0.1201	True	True
+S06_4	R=13 T=10 mu=3067 sigma=448 beta=1/1,1/2	S06_4.s0.lq16	2000	sha256:52b9ccf873aaf1a4af8b5716b2bd2fd67912719e3843a07018fc532af03cbcfc	126.883	126.801	0.0825	0.0837	True	True
+S09_7	R=13 T=10 mu=3103 sigma=460 beta=1/1,1/2	S09_7.s0.lq16	2000	sha256:8017f97bad8e4ea94a9d6f04b91977d9dba0271ea3d714a0efd5a58ac815d95f	128.598	128.618	0.0418	0.0419	True	True
+S22_1	R=13 T=10 mu=1833 sigma=251 beta=1/3,1/1,1/2	S22_1.s0.lq16	2000	sha256:933007f6de17dcd449042e24e89bf7cc569eedce9045a49b6103a79c653a5f59	115.357	114.604	0.1055	0.0781	True	True
+S25_4	R=13 T=10 mu=3000 sigma=592 beta=1/2,1/1,2/3	S25_4.s0.lq16	2000	sha256:43ef02446c57f4b878ed4bff087ee56ee33db253bfca1fc03d9238b3ecbff730	193.043	192.865	0.0088	0.0063	True	True
+S38_0	R=13 T=10 mu=3268 sigma=437 beta=1/2,1/1,2/3	S38_0.s0.lq16	2000	sha256:cec00ca965625fff7fc928a31b91dd7c6489eea462aa8bc2b65ee373a7c9fb83	183.534	183.6	0.0121	0.0135	True	True
+X3	R=13 T=10 mu=2600 sigma=360 beta=1/2,1/1	X3.s0.lq16	2000	sha256:f38b90baedd785c5d7523463aa924bb3b02177124f8a872c70d1b2dcc3ed57fb	149.793	149.793	0.0011	0.0012	True	True

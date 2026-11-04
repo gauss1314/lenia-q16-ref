@@ -2,7 +2,7 @@
 
 use crate::intmath::gcd;
 
-pub const SPEC_ID: &str = "lenia-q16/0.1-draft";
+pub const SPEC_ID: &str = "lenia-q16/0.2-k20";
 pub const LEGAL_N: [u32; 3] = [128, 256, 512];
 
 #[derive(Clone, Debug, PartialEq, Eq)]

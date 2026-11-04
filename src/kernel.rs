@@ -5,7 +5,9 @@ use crate::intmath::{isqrt, lcm, rne};
 use crate::params::Params;
 use std::collections::BTreeMap;
 
-pub const W: i128 = 1 << 16;
+/// Kernel weight total 2^KERNEL_BITS (experiment exp/kernel-2p20: 20, draft 0.1: 16).
+pub const KERNEL_BITS: u32 = 20;
+pub const W: i128 = 1 << KERNEL_BITS;
 pub const S: i128 = 1 << 16;
 
 pub struct Kernel {
@@ -115,7 +117,7 @@ pub fn generate(p: &Params, ex: &ExpNeg) -> Kernel {
     a[center] += d;
 
     let weights: Vec<u32> = a.iter().map(|&x| u32::try_from(x).unwrap()).collect();
-    debug_assert_eq!(weights.iter().map(|&w| w as u64).sum::<u64>(), 1 << 16);
+    debug_assert_eq!(weights.iter().map(|&w| w as u64).sum::<u64>(), 1 << KERNEL_BITS);
     Kernel { r: p.r, weights, h_total, leftover_d }
 }
 
@@ -132,10 +134,12 @@ mod tests {
         let ex = ExpNeg::new();
         let k = generate(&params(14, &[(1, 1)]), &ex);
         assert_eq!(k.h_total, 253767521820);
-        assert_eq!(*k.weights.iter().max().unwrap(), 277);
-        assert_eq!(k.at(9, 0), 195);
-        assert_eq!(k.at(3, 6), 275);
-        assert_eq!(k.at(6, 3), 275);
+        // (max, w(9,0), w(3,6)) for each kernel total
+        let (mx, w90, w36) = if KERNEL_BITS == 16 { (277, 195, 275) } else { (4437, 3109, 4406) };
+        assert_eq!(*k.weights.iter().max().unwrap(), mx);
+        assert_eq!(k.at(9, 0), w90);
+        assert_eq!(k.at(3, 6), w36);
+        assert_eq!(k.at(6, 3), w36);
     }
 
     #[test]
@@ -147,8 +151,10 @@ mod tests {
             for r in 5..=50u16 {
                 let k = generate(&params(r, beta), &ex);
                 let sum: u64 = k.weights.iter().map(|&w| w as u64).sum();
-                assert_eq!(sum, 1 << 16);
-                assert_eq!(k.leftover_d, 0, "R={r}");
+                assert_eq!(sum, 1 << KERNEL_BITS);
+                // 2^16: always 0 in this range. 2^20: a few units can be left for the centre
+                // (spec §5.4 rule), which keeps the kernel symmetric; at most 4 over R = 5..50 and these rings.
+                assert!(k.leftover_d >= 0 && k.leftover_d < 64, "R={r} leftover {}", k.leftover_d);
                 let ri = r as i32;
                 for dy in -ri..=ri {
                     for dx in -ri..=ri {

@@ -211,7 +211,7 @@ function stepGPU(k) {
 }
 
 // ---------- export ("collect"): u16 state record, spec §8.4, plus params ----------
-const SPEC_ID = 'lenia-q16/0.1-draft';
+const SPEC_ID = 'lenia-q16/0.2-k20';
 async function collect() {
   const f = await readField();
   const rec = new Uint8Array(48 + 2 * N * N), dv = new DataView(rec.buffer);

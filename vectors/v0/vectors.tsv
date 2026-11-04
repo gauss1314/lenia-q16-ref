@@ -1,6 +1,6 @@
-# Public determinism vectors v0 (experimental spec lenia-q16/0.2-k20 (kernel total 2^20), branch exp/kernel-2p20). Self-chosen parameters only;
+# Public determinism vectors v0 (spec draft lenia-q16/0.2-draft, kernel weight total 2^20, D-028). Self-chosen parameters only;
 # no parameter set equals a species published in Chan (2019) [verify after reading the paper].
 # name	params	n	soup_size	soup_amp	soup_seed	steps	chain	final
-v6a	R=14 T=12 mu=2700 sigma=400 beta=1/1	256	48	50000	1	512	sha256:e4f8b11d27206ded5feb591b7e1b4958c243e2ce1a2fd40eb5b5f13cb6847182	sha256:9a73aeb8ab1e346b7a15ec1d499b4cf6c8f74bc8e194870866a363f2b35690cb
-v6b	R=20 T=20 mu=2600 sigma=360 beta=1/2,1/1,2/3	128	40	45000	2	300	sha256:d9de2ce620e6af334801d1ae2420f5074a8a4b54f579363f5d00aab368dbedb4	sha256:de2bd64cb02005f8ba8ea7b5af0b3e14d0926a23177dbd100a91d0cec08239cb
-v6c	R=10 T=8 mu=2100 sigma=300 beta=1/1,1/3	512	64	60000	3	100	sha256:14273767475b0cab17a1df2e9cfdade5382ba8e8084358fc9f4cb7bb400b3a00	sha256:2f468164d338033459ce3d133597385668385551befdf44f7d367bb3683f89ed
+v6a	R=14 T=12 mu=2700 sigma=400 beta=1/1	256	48	50000	1	512	sha256:10d0d5a4e3cf18a7ada2934e2e862e006b6d80f522f4d71aada20a2345f5267a	sha256:1cd1af106ec63c067edd1d883e877bb12ade9665134cf19cbde05fbc4785405d
+v6b	R=20 T=20 mu=2600 sigma=360 beta=1/2,1/1,2/3	128	40	45000	2	300	sha256:cf18f6e36904d1bcafa09abf0157c950d2d84b969f7bb2456350819d37e4f2e7	sha256:f9a5ae3e63a64917b148df938bc2c6fb4071e0741eed4f82b57f8b53ef0da246
+v6c	R=10 T=8 mu=2100 sigma=300 beta=1/1,1/3	512	64	60000	3	100	sha256:307fee3d5c1904d6b30cdcf730ec31c43ada340bc2184c2d294c248ec0c4d394	sha256:80781b30bd3f322410bdec5346dde84104f05f15edd1a14c879b8b979d7b306e

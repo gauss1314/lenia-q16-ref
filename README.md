@@ -2,7 +2,7 @@
 
 Reference implementation of the **lenia-q16** universe: classic single-channel
 Lenia with 16-bit integer state, defined so that every implementation produces
-bit-identical results on every platform. Spec draft: `lenia-q16/0.1-draft`
+bit-identical results on every platform. Spec draft: `lenia-q16/0.2-draft` (kernel weight total 2^20, D-028)
 (kept in the design repository, `docs/spec/lenia-q16-draft.md`).
 
 Status: Phase 0 prototype. Not for registration use (spec §1).

@@ -5,7 +5,7 @@ use crate::intmath::{isqrt, lcm, rne};
 use crate::params::Params;
 use std::collections::BTreeMap;
 
-/// Kernel weight total 2^KERNEL_BITS (experiment exp/kernel-2p20: 20, draft 0.1: 16).
+/// Kernel weight total 2^KERNEL_BITS (draft 0.2: 20, D-028; draft 0.1 used 16).
 pub const KERNEL_BITS: u32 = 20;
 pub const W: i128 = 1 << KERNEL_BITS;
 pub const S: i128 = 1 << 16;

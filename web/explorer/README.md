@@ -14,6 +14,11 @@ Parameters go in the URL after `#`, for example
   params line, which `lq16 run` accepts, so a find can be re-run on the
   integer reference.
 - `steps/s` is the M4 preview speed on the machine running the page.
+- "预览核" switches the preview kernel (CH9): the continuous formula, or the
+  spec integer kernel (spec §5, weights / 2^20) computed in the page by a
+  JavaScript port of the spec algorithm (BigInt). CI checks that port against
+  the Rust reference on 40 rule points (`tools/explorer_kernel_check.mjs`).
+  The choice is in the URL (`kernel=int`) and in every logged event.
 - The panel plots the total mass (last 300 samples, one per second) and the
   centroid track on the torus (mass-weighted circular mean). Both reset on
   "应用参数", "随机汤" and "清空".

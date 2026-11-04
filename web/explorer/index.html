@@ -32,6 +32,7 @@
   <label>μ <input id="mu" type="number" step="0.0001" min="0.0001" max="0.9999" value="0.1600"></label>
   <label>σ <input id="sigma" type="number" step="0.0001" min="0.0001" max="0.9999" value="0.0170"></label>
   <label>β <input id="beta" type="text" value="1/1" title="p/q terms, inner ring first, comma separated"></label>
+  <label>预览核 <select id="kernel" title="CH9：规范整数核 = 参考实现按规范 §5 生成的整数权重 ÷ 2^20"><option value="cont" selected>连续公式</option><option value="int">规范整数核</option></select></label>
   <div class="row"><button id="apply">应用参数</button></div>
   <label>汤：大小 <input id="soupSize" type="number" min="4" max="256" value="40"></label>
   <label>汤：幅度 <input id="soupAmp" type="number" step="0.05" min="0.05" max="1" value="0.9"></label>
@@ -76,11 +77,11 @@ function parseBeta(s) {
 }
 function readParams() {
   return { N: +$('N').value, R: +$('R').value, T: +$('T').value, mu: +$('mu').value,
-           sigma: +$('sigma').value, beta: parseBeta($('beta').value), betaText: $('beta').value };
+           sigma: +$('sigma').value, beta: parseBeta($('beta').value), betaText: $('beta').value, kernel: $('kernel').value };
 }
 function loadHash() {
   const h = new URLSearchParams(location.hash.slice(1));
-  for (const k of ['N', 'R', 'T', 'mu', 'sigma', 'beta']) if (h.has(k)) $(k).value = h.get(k);
+  for (const k of ['N', 'R', 'T', 'mu', 'sigma', 'beta', 'kernel']) if (h.has(k)) $(k).value = h.get(k);
 }
 loadHash();
 
@@ -99,6 +100,49 @@ function kernelTaps(R, beta) {
   for (let j = 2; j < taps.length; j += 3) taps[j] /= sum;
   return taps;
 }
+
+// ---------- spec kernel (CH9): integer weights w/2^20 from the spec §5 algorithm ----------
+// BEGIN SPEC-KERNEL (extracted and checked against the Rust reference by tools/explorer_kernel_check.mjs)
+const KERNEL_BITS = 20n;
+function specKernel(R, betaPQ) {  // betaPQ: [[p, q], ...] as integers; returns Uint32Array((2R+1)^2) row-major
+  const ONE = 1n << 30n, S = 1n << 16n, W = 1n << KERNEL_BITS;
+  const fdiv = (a, b) => { let q = a / b; if ((a % b !== 0n) && ((a < 0n) !== (b < 0n))) q -= 1n; return q; };
+  const fmod = (a, b) => a - fdiv(a, b) * b;
+  const rne = (a, b) => { const q = fdiv(a, b), r = fmod(a, b), t = 2n * r; return t < b ? q : t > b ? q + 1n : (q % 2n === 0n ? q : q + 1n); };
+  const isqrt = n => { let rem = n, root = 0n, bit = 1n << 46n; while (bit > rem) bit >>= 2n;
+    while (bit !== 0n) { if (rem >= root + bit) { rem -= root + bit; root = (root >> 1n) + bit; } else root >>= 1n; bit >>= 2n; } return root; };
+  const series = g => { let acc = ONE, term = ONE; for (let m = 1n; m <= 16n; m++) { term = rne(term * g, m * ONE); acc = m % 2n === 1n ? acc - term : acc + term; } return acc; };
+  const eneg = [ONE]; { const e1 = series(ONE); for (let n = 1; n < 22; n++) eneg.push(rne(eneg[n - 1] * e1, ONE)); }
+  const expneg = y => { if (y >= 22n * ONE) return 0n; const n = y >> 30n; return rne(series(y - n * ONE) * eneg[Number(n)], ONE); };
+  const gcd = (a, b) => b === 0n ? a : gcd(b, a % b);
+  const r = BigInt(R), B = BigInt(betaPQ.length), side = 2 * R + 1;
+  const L = betaPQ.reduce((acc, [, q]) => acc / gcd(acc, BigInt(q)) * BigInt(q), 1n);
+  const h = new Array(side * side).fill(0n), d2s = new Array(side * side).fill(-1n);
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    const d2 = BigInt(dx * dx + dy * dy); if (d2 >= r * r) continue;
+    const j = (dy + R) * side + (dx + R); d2s[j] = d2;
+    const rho = isqrt(d2 * B * B * S * S / (r * r)), i = Number(rho >> 16n), f = rho % S;
+    const k = f === 0n ? 0n : expneg(rne(1n << 62n, f * (S - f)) - (1n << 32n));
+    const [pi, qi] = betaPQ[i]; h[j] = k * BigInt(pi) * (L / BigInt(qi));
+  }
+  const H = h.reduce((a, b) => a + b, 0n); if (H <= 0n) throw new Error('H = 0: illegal rule point');
+  const a = h.map(x => W * x / H), rem = h.map((x, j) => W * x - a[j] * H);
+  let D = W - a.reduce((x, y) => x + y, 0n);
+  const classes = new Map();
+  for (let j = 0; j < h.length; j++) if (d2s[j] >= 0n && rem[j] > 0n) {
+    const key = d2s[j]; if (!classes.has(key)) classes.set(key, { rm: rem[j], d2: key, cells: [] }); classes.get(key).cells.push(j); }
+  const order = [...classes.values()].sort((x, y) => (y.rm > x.rm) - (y.rm < x.rm) || (x.d2 > y.d2) - (x.d2 < y.d2));
+  for (const c of order) { const n = BigInt(c.cells.length); if (n <= D) { for (const j of c.cells) a[j] += 1n; D -= n; } }
+  a[R * side + R] += D;
+  return Uint32Array.from(a, Number);
+}
+// END SPEC-KERNEL
+function intKernelTaps(R, betaText) {
+  const w = specKernel(R, parseBetaPQ(betaText)), side = 2 * R + 1, taps = [];
+  for (let j = 0; j < w.length; j++) if (w[j]) taps.push(j % side - R, Math.floor(j / side) - R, w[j] / 2 ** 20);
+  return taps;
+}
+function parseBetaPQ(s) { return s.split(',').map(t => t.trim()).filter(Boolean).map(t => t.split('/').map(Number)); }
 
 // ---------- GPU resources ----------
 const shader = device.createShaderModule({ code: /* wgsl */`
@@ -157,7 +201,7 @@ const host = { field: null };
 function build() {
   P = readParams(); N = P.N;
   canvas.width = N; canvas.height = N;
-  const taps = kernelTaps(P.R, P.beta); ntaps = taps.length / 3;
+  const taps = P.kernel === 'int' ? intKernelTaps(P.R, P.betaText) : kernelTaps(P.R, P.beta); ntaps = taps.length / 3;
   const tapData = new Float32Array(ntaps * 4);
   for (let k = 0; k < ntaps; k++) tapData.set([taps[3 * k], taps[3 * k + 1], taps[3 * k + 2], 0], 4 * k);
   tapBuf = device.createBuffer({ size: Math.max(16, tapData.byteLength), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
@@ -176,7 +220,7 @@ function build() {
     { binding: 2, resource: { buffer: bufs[i] } }, { binding: 3, resource: { buffer: bufs[1 - i] } }] }));
   bindDraw = [0, 1].map(i => device.createBindGroup({ layout: renderPipe.getBindGroupLayout(0), entries: [
     { binding: 0, resource: { buffer: uni } }, { binding: 4, resource: { buffer: bufs[i] } }] }));
-  history.replaceState(null, '', `#N=${N}&R=${P.R}&T=${P.T}&mu=${P.mu}&sigma=${P.sigma}&beta=${encodeURIComponent(P.betaText)}`);
+  history.replaceState(null, '', `#N=${N}&R=${P.R}&T=${P.T}&mu=${P.mu}&sigma=${P.sigma}&beta=${encodeURIComponent(P.betaText)}&kernel=${P.kernel}`);
 }
 
 // deterministic xorshift for soups (preview only)
@@ -234,13 +278,13 @@ async function collect() {
   download(`state-${stamp}.lq16`, new Blob([rec]));
   download(`params-${stamp}.txt`, new Blob([params + '\n']));
   const last = series[series.length - 1];
-  logEvent('collect', { file: `state-${stamp}.lq16`, params, mass: last ? +last.mass.toFixed(2) : null });
+  logEvent('collect', { file: `state-${stamp}.lq16`, params, kernel: P.kernel, N, mass: last ? +last.mass.toFixed(2) : null });
 }
 
 // ---------- session log (play log G8, M4) ----------
 const LOG_KEY = 'lq16-explorer-log';
 function newLog() {
-  return { kind: 'lq16-explorer-session', spec_preview: 'float32 continuous kernel (not the integer reference)',
+  return { kind: 'lq16-explorer-session', spec_preview: 'float32 preview, not the integer reference; preview kernel per event (cont = continuous formula, int = spec integer kernel / 2^20)',
            started: new Date().toISOString(), userAgent: navigator.userAgent,
            adapter: adapter.info ? { vendor: adapter.info.vendor, architecture: adapter.info.architecture, device: adapter.info.device, description: adapter.info.description } : null,
            screen: `${screen.width}x${screen.height}@${devicePixelRatio}`, events: [] };
@@ -251,7 +295,7 @@ function logEvent(type, data = {}) {
   sessionLog.events.push({ t: new Date().toISOString(), step: stepCount, type, ...data });
   try { localStorage.setItem(LOG_KEY, JSON.stringify(sessionLog)); } catch {}
 }
-function paramsLine() { return `R=${P.R} T=${P.T} mu=${Math.round(P.mu * 1e4)} sigma=${Math.round(P.sigma * 1e4)} beta=${P.betaText.replace(/\s/g, '')} N=${N}`; }
+function paramsLine() { return `R=${P.R} T=${P.T} mu=${Math.round(P.mu * 1e4)} sigma=${Math.round(P.sigma * 1e4)} beta=${P.betaText.replace(/\s/g, '')} N=${N} kernel=${P.kernel}`; }
 function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); }
 function exportLog() {
   const sps = sessionLog.events.filter(e => e.type === 'm4').map(e => e.stepsPerSecond).sort((a, b) => a - b);

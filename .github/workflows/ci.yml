@@ -39,6 +39,8 @@ jobs:
       - run: tools/prepare_vec_tmp.sh
       - name: standalone self-test page is up to date
         run: python3 tools/make_standalone.py --check
+      - name: explorer's JavaScript spec kernel matches the Rust reference (CH9)
+        run: node tools/explorer_kernel_check.mjs
       - name: install playwright
         run: npm install --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
       - name: public vectors v0 and bench/v0 in chromium

@@ -72,7 +72,7 @@ impl Universe {
     /// One synchronous step; `threads` only splits the work (result is identical).
     pub fn step(&self, a: &[u16], threads: u32) -> Vec<u16> {
         if let Some(plan) = &self.ntt {
-            let u = plan.potential(a);
+            let u = plan.potential(a, threads.max(1) as usize);
             return a
                 .iter()
                 .zip(u.iter())

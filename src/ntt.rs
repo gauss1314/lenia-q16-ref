@@ -68,21 +68,41 @@ fn ntt<const M: u64, const G: u64>(a: &mut [u64], invert: bool) {
     }
 }
 
-/// 2-D transform of an n×n row-major array.
-fn ntt2<const M: u64, const G: u64>(a: &mut [u64], n: usize, invert: bool) {
-    for row in a.chunks_mut(n) {
-        ntt::<M, G>(row, invert);
-    }
-    let mut col = vec![0u64; n];
-    for x in 0..n {
-        for y in 0..n {
-            col[y] = a[y * n + x];
+/// Transforms every row of an n×n row-major array, splitting rows over `threads`.
+fn rows<const M: u64, const G: u64>(a: &mut [u64], n: usize, invert: bool, threads: usize) {
+    if threads <= 1 {
+        for row in a.chunks_mut(n) {
+            ntt::<M, G>(row, invert);
         }
-        ntt::<M, G>(&mut col, invert);
-        for y in 0..n {
-            a[y * n + x] = col[y];
+        return;
+    }
+    let per = (n + threads - 1) / threads;
+    std::thread::scope(|s| {
+        for block in a.chunks_mut(per * n) {
+            s.spawn(move || {
+                for row in block.chunks_mut(n) {
+                    ntt::<M, G>(row, invert);
+                }
+            });
+        }
+    });
+}
+
+fn transpose(a: &mut [u64], n: usize) {
+    for y in 0..n {
+        for x in y + 1..n {
+            a.swap(y * n + x, x * n + y);
         }
     }
+}
+
+/// 2-D transform of an n×n row-major array: rows, then columns (as rows of the transpose).
+/// Each row is independent, so the result does not depend on `threads`.
+fn ntt2<const M: u64, const G: u64>(a: &mut [u64], n: usize, invert: bool, threads: usize) {
+    rows::<M, G>(a, n, invert, threads);
+    transpose(a, n);
+    rows::<M, G>(a, n, invert, threads);
+    transpose(a, n);
 }
 
 pub struct NttPlan {
@@ -104,24 +124,24 @@ impl NttPlan {
         }
         let mut k1 = base.clone();
         let mut k2 = base;
-        ntt2::<M1, G1>(&mut k1, n, false);
-        ntt2::<M2, G2>(&mut k2, n, false);
+        ntt2::<M1, G1>(&mut k1, n, false, 1);
+        ntt2::<M2, G2>(&mut k2, n, false, 1);
         NttPlan { n, k1, k2, inv_m1_mod_m2: pow_mod(M1 % M2, M2 - 2, M2) }
     }
 
     /// Returns U(x, y) = (Σ w·A) >> KERNEL_BITS for every cell, exactly.
-    pub fn potential(&self, a: &[u16]) -> Vec<u16> {
+    pub fn potential(&self, a: &[u16], threads: usize) -> Vec<u16> {
         let n = self.n;
         let mut a1: Vec<u64> = a.iter().map(|&v| v as u64).collect();
         let mut a2 = a1.clone();
-        ntt2::<M1, G1>(&mut a1, n, false);
-        ntt2::<M2, G2>(&mut a2, n, false);
+        ntt2::<M1, G1>(&mut a1, n, false, threads);
+        ntt2::<M2, G2>(&mut a2, n, false, threads);
         for i in 0..n * n {
             a1[i] = a1[i] * self.k1[i] % M1;
             a2[i] = a2[i] * self.k2[i] % M2;
         }
-        ntt2::<M1, G1>(&mut a1, n, true);
-        ntt2::<M2, G2>(&mut a2, n, true);
+        ntt2::<M1, G1>(&mut a1, n, true, threads);
+        ntt2::<M2, G2>(&mut a2, n, true, threads);
         a1.iter()
             .zip(a2.iter())
             .map(|(&r1, &r2)| {
@@ -161,6 +181,7 @@ mod tests {
             // full-range state, including 65535 everywhere, exercises the upper bound
             for a in [soup(128, 7), vec![65535u16; 128 * 128]] {
                 assert_eq!(direct.step(&a, 2), fast.step(&a, 1), "R={r}");
+                assert_eq!(fast.step(&a, 1), fast.step(&a, 3), "R={r} threads");
             }
         }
     }

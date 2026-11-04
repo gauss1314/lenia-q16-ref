@@ -14,6 +14,14 @@ Parameters go in the URL after `#`, for example
   params line, which `lq16 run` accepts, so a find can be re-run on the
   integer reference.
 - `steps/s` is the M4 preview speed on the machine running the page.
+- The panel plots the total mass (last 300 samples, one per second) and the
+  centroid track on the torus (mass-weighted circular mean). Both reset on
+  "应用参数", "随机汤" and "清空".
+- Session log (play log, G8): parameter changes, soups, collects, pauses, an M4
+  sample every 10 s while running, and free-text notes ("记一笔", Enter to save)
+  are kept in the browser (localStorage) across reloads. "导出试玩日志"
+  downloads them as `playlog-<start time>.json`, with the GPU adapter and the
+  median steps/s; "开始新日志" starts a fresh one.
 - `?test` runs compute only with no canvas (headless browsers cannot present
   WebGPU canvases); `window.__lq` exposes hooks for automated checks.
 

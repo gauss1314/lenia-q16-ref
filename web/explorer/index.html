@@ -18,6 +18,8 @@
   #stats { font-family: ui-monospace, monospace; font-size:12px; color:var(--muted); white-space:pre; }
   #err { color:#ff9a8a; white-space:pre-wrap; }
   .note { font-size:12px; color:var(--muted); }
+  #plots { background:#0d1014; border-radius:4px; width:292px; height:300px; }
+  #note { width:100%; background:#0d1014; color:var(--text); border:1px solid #333a44; border-radius:4px; padding:4px 6px; }
 </style>
 </head>
 <body>
@@ -39,6 +41,9 @@
   <label>每帧步数 <input id="spf" type="range" min="1" max="20" value="1"></label>
   <div class="row"><button id="collect">采集（导出状态）</button></div>
   <div id="stats"></div>
+  <canvas id="plots" width="584" height="600" title="上：质量（最近 300 个采样）；下：质心轨迹（环面）"></canvas>
+  <input id="note" type="text" placeholder="记一笔（回车保存）：看到了什么、为什么停下">
+  <div class="row"><button id="exportLog">导出试玩日志</button><button id="newLog">开始新日志</button></div>
   <div id="err"></div>
   <div class="note">点击画面：在该处放一小块随机汤。参数可写在网址 # 后，例如 #R=14&T=12&mu=0.16&sigma=0.017&beta=1/1</div>
 </div>
@@ -226,36 +231,120 @@ async function collect() {
   }
   const params = `R=${P.R} T=${P.T} mu=${Math.round(P.mu * 1e4)} sigma=${Math.round(P.sigma * 1e4)} beta=${P.betaText.replace(/\s/g, '')}`;
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  for (const [name, blob] of [[`state-${stamp}.lq16`, new Blob([rec])], [`params-${stamp}.txt`, new Blob([params + '\n'])]]) {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  download(`state-${stamp}.lq16`, new Blob([rec]));
+  download(`params-${stamp}.txt`, new Blob([params + '\n']));
+  const last = series[series.length - 1];
+  logEvent('collect', { file: `state-${stamp}.lq16`, params, mass: last ? +last.mass.toFixed(2) : null });
+}
+
+// ---------- session log (play log G8, M4) ----------
+const LOG_KEY = 'lq16-explorer-log';
+function newLog() {
+  return { kind: 'lq16-explorer-session', spec_preview: 'float32 continuous kernel (not the integer reference)',
+           started: new Date().toISOString(), userAgent: navigator.userAgent,
+           adapter: adapter.info ? { vendor: adapter.info.vendor, architecture: adapter.info.architecture, device: adapter.info.device, description: adapter.info.description } : null,
+           screen: `${screen.width}x${screen.height}@${devicePixelRatio}`, events: [] };
+}
+let sessionLog;
+try { sessionLog = JSON.parse(localStorage.getItem(LOG_KEY)) || newLog(); } catch { sessionLog = newLog(); }
+function logEvent(type, data = {}) {
+  sessionLog.events.push({ t: new Date().toISOString(), step: stepCount, type, ...data });
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(sessionLog)); } catch {}
+}
+function paramsLine() { return `R=${P.R} T=${P.T} mu=${Math.round(P.mu * 1e4)} sigma=${Math.round(P.sigma * 1e4)} beta=${P.betaText.replace(/\s/g, '')} N=${N}`; }
+function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); }
+function exportLog() {
+  const sps = sessionLog.events.filter(e => e.type === 'm4').map(e => e.stepsPerSecond).sort((a, b) => a - b);
+  sessionLog.exported = new Date().toISOString();
+  sessionLog.m4_median_steps_per_s = sps.length ? sps[sps.length >> 1] : null;
+  download(`playlog-${sessionLog.started.replace(/[:.]/g, '-')}.json`, new Blob([JSON.stringify(sessionLog, null, 1)], { type: 'application/json' }));
+  logEvent('export_log');
+}
+
+// ---------- charts: mass and centroid track ----------
+const plots = $('plots'), pc = plots.getContext('2d');
+let series = [];  // {tu, mass, cx, cy}
+function resetSeries() { series = []; }
+function centroid(f) {
+  // mass-weighted circular mean on the torus
+  let sx = 0, sy = 0, cx = 0, cy = 0, m = 0;
+  for (let y = 0; y < N; y++) { const ay = 2 * Math.PI * y / N, c = Math.cos(ay), s = Math.sin(ay);
+    for (let x = 0; x < N; x++) { const v = f[y * N + x]; if (v === 0) continue; m += v; cy += v * c; sy += v * s;
+      const ax = 2 * Math.PI * x / N; cx += v * Math.cos(ax); sx += v * Math.sin(ax); } }
+  if (m <= 0) return [NaN, NaN, 0];
+  const wrap = a => (a < 0 ? a + 2 * Math.PI : a) / (2 * Math.PI) * N;
+  return [wrap(Math.atan2(sx, cx)), wrap(Math.atan2(sy, cy)), m];
+}
+function drawPlots() {
+  const W = plots.width, H = plots.height, h1 = 220;
+  pc.fillStyle = '#0d1014'; pc.fillRect(0, 0, W, H);
+  pc.fillStyle = '#9aa3ad'; pc.font = '20px system-ui';
+  const s = series.slice(-300);
+  if (s.length > 1) {
+    const ms = s.map(p => p.mass), lo = Math.min(...ms), hi = Math.max(...ms), span = hi - lo || 1;
+    pc.fillText(`质量 ${ms[ms.length - 1].toFixed(1)}  (${lo.toFixed(1)}–${hi.toFixed(1)})`, 8, 24);
+    pc.strokeStyle = '#7cc4fa'; pc.lineWidth = 2; pc.beginPath();
+    s.forEach((p, i) => { const x = 8 + i / (s.length - 1) * (W - 16), y = h1 - 10 - (p.mass - lo) / span * (h1 - 50);
+      i ? pc.lineTo(x, y) : pc.moveTo(x, y); }); pc.stroke();
+  } else pc.fillText('质量', 8, 24);
+  // centroid track on the torus, a square map below
+  const top = h1 + 10, size = H - top - 10, left = (W - size) / 2;
+  pc.strokeStyle = '#333a44'; pc.strokeRect(left, top, size, size);
+  pc.fillText('质心轨迹', 8, top + 20);
+  pc.strokeStyle = '#fde725'; pc.lineWidth = 2;
+  let prev = null;
+  for (const p of series) {
+    if (!(p.cx >= 0)) { prev = null; continue; }
+    const x = left + p.cx / N * size, y = top + p.cy / N * size;
+    if (prev && Math.hypot(x - prev[0], y - prev[1]) < size / 2) { pc.beginPath(); pc.moveTo(prev[0], prev[1]); pc.lineTo(x, y); pc.stroke(); }
+    prev = [x, y];
   }
+  if (prev) { pc.fillStyle = '#fde725'; pc.beginPath(); pc.arc(prev[0], prev[1], 5, 0, 2 * Math.PI); pc.fill(); }
 }
 
 // ---------- UI ----------
 let playing = true, frames = 0, t0 = performance.now(), sps = 0, lastSteps = 0, stats = '';
 build();
 await placeSoup(N >> 1, N >> 1);
-$('apply').onclick = async () => { if (bufs) await readField(); build(); };
-$('soup').onclick = () => placeSoup(N >> 1, N >> 1);
-$('clear').onclick = () => { host.field = new Float32Array(N * N); device.queue.writeBuffer(bufs[cur], 0, host.field); };
-$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '暂停' : '继续'; };
+logEvent('page_open', { params: paramsLine() });
+$('apply').onclick = async () => { if (bufs) await readField(); build(); resetSeries(); logEvent('apply', { params: paramsLine() }); };
+$('soup').onclick = () => { logEvent('soup', { x: N >> 1, y: N >> 1, seed: +$('seed').value, size: +$('soupSize').value, amp: +$('soupAmp').value }); resetSeries(); placeSoup(N >> 1, N >> 1); };
+$('clear').onclick = () => { host.field = new Float32Array(N * N); device.queue.writeBuffer(bufs[cur], 0, host.field); resetSeries(); logEvent('clear'); };
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '暂停' : '继续'; logEvent(playing ? 'play' : 'pause'); };
+$('exportLog').onclick = exportLog;
+$('newLog').onclick = () => { if (confirm('开始新日志？当前日志请先导出。')) { sessionLog = newLog(); logEvent('page_open', { params: paramsLine() }); } };
+$('note').onkeydown = e => { if (e.key === 'Enter' && e.target.value.trim()) { logEvent('note', { text: e.target.value.trim(), params: paramsLine() }); e.target.value = ''; } };
 $('stepBtn').onclick = () => stepGPU(1);
 $('collect').onclick = collect;
-canvas.onclick = e => { const b = canvas.getBoundingClientRect(); placeSoup(Math.floor((e.clientX - b.left) / b.width * N), Math.floor((e.clientY - b.top) / b.height * N)); };
-window.addEventListener('hashchange', async () => { loadHash(); await readField(); build(); });
+canvas.onclick = e => { const b = canvas.getBoundingClientRect(); const x = Math.floor((e.clientX - b.left) / b.width * N), y = Math.floor((e.clientY - b.top) / b.height * N);
+  logEvent('soup', { x, y, seed: +$('seed').value, size: +$('soupSize').value, amp: +$('soupAmp').value }); placeSoup(x, y); };
+window.addEventListener('hashchange', async () => { loadHash(); await readField(); build(); resetSeries(); logEvent('apply', { params: paramsLine(), via: 'url' }); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) playing = false, $('play').textContent = '继续'; });
 
+let m4Last = 0, statsBusy = false;
 async function refreshStats() {
+  if (statsBusy) return;  // a slow GPU must not pile up field reads
+  statsBusy = true;
+  try { await refreshStatsInner(); } finally { statsBusy = false; }
+}
+async function refreshStatsInner() {
   const f = await readField();
-  let m = 0; for (let i = 0; i < f.length; i++) m += f[i];
+  const [cx, cy, m] = centroid(f);
+  series.push({ tu: stepCount / P.T, mass: m, cx, cy }); if (series.length > 3000) series.shift();
+  drawPlots();
   const now = performance.now(); sps = (stepCount - lastSteps) / ((now - t0) / 1000); t0 = now; lastSteps = stepCount;
   stats = `steps   ${stepCount}\ntime    ${(stepCount / P.T).toFixed(1)} TU\nmass    ${m.toFixed(2)}\nsteps/s ${sps.toFixed(0)}   (M4)\ntaps    ${ntaps}`;
   $('stats').textContent = stats;
   window.__m4 = { stepsPerSecond: sps, N, R: P.R, taps: ntaps, adapter: adapter.info ? `${adapter.info.vendor} ${adapter.info.architecture}` : '' };
+  // M4: one sample every 10 s while running (spf recorded: more steps per frame raises steps/s)
+  if (playing && !document.hidden && performance.now() - m4Last > 10000 && sps > 0) {
+    m4Last = performance.now();
+    logEvent('m4', { stepsPerSecond: Math.round(sps), N, R: P.R, taps: ntaps, spf: +$('spf').value });
+  }
 }
 setInterval(refreshStats, 1000);
 // test hooks (used by headless checks)
-window.__lq = { readField, setField: f => { host.field = new Float32Array(f); device.queue.writeBuffer(bufs[cur], 0, host.field); }, step: k => stepGPU(k), pause: () => { playing = false; }, done: () => device.queue.onSubmittedWorkDone() };
+window.__lq = { log: () => sessionLog, series: () => series, readField, setField: f => { host.field = new Float32Array(f); device.queue.writeBuffer(bufs[cur], 0, host.field); }, step: k => stepGPU(k), pause: () => { playing = false; }, done: () => device.queue.onSubmittedWorkDone() };
 function frame() { if (playing) stepGPU(+$('spf').value); frames++; requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
 </script>

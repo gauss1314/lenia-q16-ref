@@ -7,7 +7,7 @@ looking, not for measuring.
 Open `index.html` from any local web server in desktop Chrome or Edge, e.g.
 `python3 -m http.server` in this folder, then http://localhost:8000/.
 Parameters go in the URL after `#`, for example
-`#N=256&R=14&T=12&mu=0.16&sigma=0.017&beta=1/1`.
+`#N=256&R=13&T=10&mu=0.1923&sigma=0.0277&beta=1/2,1/1`.
 
 - Click the field to drop a random patch; "随机汤" drops one in the centre.
 - "采集（导出状态）" downloads a `LQ16STAT` state record (spec §8.4) and a

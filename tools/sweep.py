@@ -1,14 +1,17 @@
 """Random parameter sweep for self-found benchmark structures (float64 control).
-Stays away from the known literature loci: Orbium (mu .15, sigma .016) and the
-Paraptera cross-section (mu .30, sigma .0393-.0515), all beta=[1], using 2x the DD12
-box (|dmu| <= .04, |dsigma| <= .008)."""
+
+  python3 sweep.py [exclude.tsv]
+
+Stays away from excluded parameter loci (published species), using 2x the DD12 box
+(|dmu| <= .04, |dsigma| <= .008). The exclusion list (lines "mu sigma beta") is kept
+outside this repository and passed as an argument."""
 import json, sys
 import numpy as np
 from multiprocessing import Pool
 sys.path.insert(0, '/home/user/lenia-q16-ref/tools')
 from lenia_f64 import Lenia
 N, R, T = 128, 13, 10
-LIT = [(0.15, 0.016, '1/1')] + [(0.30, s / 10000, '1/1') for s in range(393, 516, 10)]
+LIT = [(float(m), float(sg), b) for m, sg, b in (l.split() for l in open(sys.argv[1]) if l.strip() and not l.startswith('#'))] if len(sys.argv) > 1 else []
 BETAS = ['1/1', '1/1', '1/2,1/1', '1/1,1/2', '1/1,1/3', '1/2,1/1,2/3', '1/3,1/1,1/2']
 
 def near_lit(mu, sg, beta):

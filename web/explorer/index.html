@@ -27,11 +27,11 @@
 <div id="panel">
   <div class="note">float32 preview (not the integer reference). Phase 0 prototype for founder play-testing.</div>
   <label>N <select id="N"><option>128</option><option selected>256</option><option>512</option></select></label>
-  <label>R <input id="R" type="number" min="5" max="50" value="14"></label>
-  <label>T <input id="T" type="number" min="5" max="40" value="12"></label>
-  <label>μ <input id="mu" type="number" step="0.0001" min="0.0001" max="0.9999" value="0.1600"></label>
-  <label>σ <input id="sigma" type="number" step="0.0001" min="0.0001" max="0.9999" value="0.0170"></label>
-  <label>β <input id="beta" type="text" value="1/1" title="p/q terms, inner ring first, comma separated"></label>
+  <label>R <input id="R" type="number" min="5" max="50" value="13"></label>
+  <label>T <input id="T" type="number" min="5" max="40" value="10"></label>
+  <label>μ <input id="mu" type="number" step="0.0001" min="0.0001" max="0.9999" value="0.1923"></label>
+  <label>σ <input id="sigma" type="number" step="0.0001" min="0.0001" max="0.9999" value="0.0277"></label>
+  <label>β <input id="beta" type="text" value="1/2,1/1" title="p/q terms, inner ring first, comma separated"></label>
   <label>预览核 <select id="kernel" title="CH9：规范整数核 = 参考实现按规范 §5 生成的整数权重 ÷ 2^20"><option value="cont" selected>连续公式</option><option value="int">规范整数核</option></select></label>
   <div class="row"><button id="apply">应用参数</button></div>
   <label>汤：大小 <input id="soupSize" type="number" min="4" max="256" value="40"></label>
@@ -46,7 +46,7 @@
   <input id="note" type="text" placeholder="记一笔（回车保存）：看到了什么、为什么停下">
   <div class="row"><button id="exportLog">导出试玩日志</button><button id="newLog">开始新日志</button></div>
   <div id="err"></div>
-  <div class="note">点击画面：在该处放一小块随机汤。参数可写在网址 # 后，例如 #R=14&T=12&mu=0.16&sigma=0.017&beta=1/1</div>
+  <div class="note">点击画面：在该处放一小块随机汤。参数可写在网址 # 后，例如 #R=13&T=10&mu=0.1923&sigma=0.0277&beta=1/2,1/1</div>
 </div>
 <script type="module">
 const $ = id => document.getElementById(id);

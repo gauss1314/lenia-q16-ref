@@ -60,7 +60,7 @@ impl Params {
         Ok(())
     }
 
-    /// Parses "R=13 T=10 mu=1500 sigma=150 beta=1/1,1/2" (μ, σ in units of 1e-4).
+    /// Parses "R=13 T=10 mu=2600 sigma=360 beta=1/2,1/1" (μ, σ in units of 1e-4).
     pub fn parse(s: &str) -> Result<Params, String> {
         let mut p = Params { kf: 1, gf: 1, r: 0, t: 0, mu_q: 0, sigma_q: 0, beta: vec![] };
         for tok in s.split_whitespace() {

@@ -14,7 +14,7 @@ for (const beta of ['1/1', '1/2,1/1', '1/1,1/3', '1/2,1/1,2/3', '1/4,3/4,1/1,5/1
   for (const R of [5, 7, 13, 14, 20, 26, 39, 50]) cases.push([R, beta]);
 let bad = 0;
 for (const [R, beta] of cases) {
-  const params = `R=${R} T=10 mu=1500 sigma=150 beta=${beta}`;
+  const params = `R=${R} T=10 mu=2600 sigma=360 beta=${beta}`;
   const want = execFileSync(here + 'target/release/lq16', ['info', params]).toString().match(/kernel\s+(sha256:\w+)/)[1];
   const w = specKernel(R, beta.split(',').map(t => t.split('/').map(Number)));
   const rec = Buffer.alloc(44 + 4 * w.length);

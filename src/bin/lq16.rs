@@ -6,7 +6,7 @@
 //!              [--dump frames.u16 --every K]
 //!   lq16 soup  --out s.lq16 [--n 256] [--size 40] [--amp 65535] [--seed 1]
 //!
-//! <params> looks like "R=13 T=10 mu=1500 sigma=150 beta=1/1".
+//! <params> looks like "R=13 T=10 mu=2600 sigma=360 beta=1/2,1/1".
 
 use lq16::params::Params;
 use lq16::records::{parse_state_record, state_record};

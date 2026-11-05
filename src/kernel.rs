@@ -126,7 +126,7 @@ mod tests {
     use super::*;
 
     fn params(r: u16, beta: &[(u16, u16)]) -> Params {
-        Params { kf: 1, gf: 1, r, t: 10, mu_q: 1500, sigma_q: 150, beta: beta.to_vec() }
+        Params { kf: 1, gf: 1, r, t: 10, mu_q: 2600, sigma_q: 360, beta: beta.to_vec() }
     }
 
     #[test]

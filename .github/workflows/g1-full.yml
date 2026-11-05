@@ -1,8 +1,17 @@
 name: g1-full
 # The full G1 matrix (phase 0 plan §6.1): vectors/g1/g1.tsv, 2000 TU per item, on the three
-# G1 configurations (D-066). Manual only: about 10x the minutes of the routine CI run.
+# G1 configurations (D-066). Runs when the full vectors or this workflow change, or by hand.
+# (The repository is public since 2026-11-05, D-068, so Actions minutes are not limited.)
 on:
+  push:
+    paths:
+      - 'vectors/g1/**'
+      - 'tools/check_g1.sh'
+      - '.github/workflows/g1-full.yml'
   workflow_dispatch:
+concurrency:
+  group: g1-full-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   native:
     strategy:
